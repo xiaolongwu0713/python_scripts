@@ -1,9 +1,9 @@
-from others_works.EEGNet_in_pytorch.src.data import DataBuildClassifier
+from models.EEGNet_in_pytorch.src.data import DataBuildClassifier
 import os
 import numpy as np
-from others_works.EEGNet_in_pytorch.src.utils import single_auc_loging
-from others_works.EEGNet_in_pytorch.src.utils import prepare_dirs,write_results_table, separte_last_block
-from others_works.EEGNet_in_pytorch.src.model_torch import train_model_eegnet
+from models.EEGNet_in_pytorch.src.utils import single_auc_loging
+from models.EEGNet_in_pytorch.src.utils import prepare_dirs,write_results_table, separte_last_block
+from models.EEGNet_in_pytorch.src.model_torch import train_model_eegnet
 from sklearn.model_selection import StratifiedKFold
 
 experiment_res_dir = './res/' #Path to save results and training|testing statistics

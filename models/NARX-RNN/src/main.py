@@ -1,15 +1,6 @@
-import torch
 import argparse
-import numpy as np
-import pandas as pd
-from torch import nn
-from torch import optim
-import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
-from torch.autograd import Variable
-
-from utils import *
 from model import *
 
 

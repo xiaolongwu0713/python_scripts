@@ -1,11 +1,8 @@
 from mne.time_frequency import tfr_morlet
-from config import *
-from utils import *
-import matplotlib.pyplot as plt
+from grasp.utils import *
 import numpy as np
 import scipy.io
 import mne
-import matplotlib
 #matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 #from PyQt5 import QtWidgets
