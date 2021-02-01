@@ -1,7 +1,11 @@
+import sys
+#sys.path.insert(0,'..') or
+sys.path.append('..')
+
 import argparse
 import matplotlib.pyplot as plt
-
-from model import *
+from models.NARX.model import *
+from models.NARX.utils import read_data
 
 
 def parse_args():
