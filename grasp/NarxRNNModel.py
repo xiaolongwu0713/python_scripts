@@ -7,6 +7,10 @@ import matplotlib.pyplot as plt
 from models.NARX.model import *
 from models.NARX.utils import read_data
 
+'''
+usage: cd to grasp folder, then type 'python NarxRNNModel.py' in terminal
+or cd to grasp folder, type python NarxRNNModel.py --help
+'''
 
 def parse_args():
     """Parse arguments."""
@@ -15,6 +19,9 @@ def parse_args():
 
     # Dataset setting
     parser.add_argument('--dataroot', type=str, default="../nasdaq/nasdaq100_padding.csv", help='path to dataset')
+    parser.add_argument('--feature', type=str, default="fbands", help='input feature: fbands or raw')
+    parser.add_argument('--traindataset', type=int, default=4, help='which movement dataset to train on')
+    parser.add_argument('--testdataset', type=int, default=4, help='which movement dataset to test for')
     parser.add_argument('--batchsize', type=int, default=128, help='input batch size [128]')
 
     # Encoder / Decoder parameters setting
@@ -38,7 +45,7 @@ def main():
 
     # Read dataset
     print("==> Load dataset ...")
-    X, y = read_data(args.dataroot, debug=False)
+    X, y = read_data(args, debug=False)
 
     # Initialize model
     print("==> Initialize DA-RNN model ...")
@@ -62,19 +69,20 @@ def main():
 
     fig1 = plt.figure()
     plt.semilogy(range(len(model.iter_losses)), model.iter_losses)
-    plt.savefig("1.png")
+    plt.savefig("NARX_iter_loss.png")
     plt.close(fig1)
 
     fig2 = plt.figure()
     plt.semilogy(range(len(model.epoch_losses)), model.epoch_losses)
-    plt.savefig("2.png")
+    plt.savefig("NARX_epoch_loss.png")
     plt.close(fig2)
 
     fig3 = plt.figure()
     plt.plot(y_pred, label='Predicted')
     plt.plot(model.y[model.train_timesteps:], label="True")
     plt.legend(loc='upper left')
-    plt.savefig("3.png")
+    # figname="prediction_after_%d_epochs" % epochs
+    plt.savefig("prediction.png")
     plt.close(fig3)
     print('Finished Training')
 

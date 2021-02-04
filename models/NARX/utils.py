@@ -15,32 +15,26 @@ import numpy as np
 import pandas as pd
 import scipy.io
 
-def read_data(input_path, debug=True):
-    """
-    Read nasdaq stocks data.
+def read_data(args, debug=True):
 
-    Args:
-        input_path (str): directory to nasdaq dataset.
-
-    Returns:
-        X (np.ndarray): features.
-        y (np.ndarray): ground truth.
-
-    """
-    #df = pd.read_csv(input_path, nrows=250 if debug else None)
-    #X = df.loc[:, [x for x in df.columns.tolist() if x != 'NDX']].to_numpy()
-    #y = np.array(df.NDX)
-
-    ######
-    datafile1 = '/Users/long/Documents/BCI/matlab_scripts/force/pls/move4TrainData.mat'
-    datafile2 = '/Users/long/Documents/BCI/matlab_scripts/force/pls/move4TestData.mat'
-    raw1 = scipy.io.loadmat(datafile1)
-    raw2 = scipy.io.loadmat(datafile2)
-    train = raw1['train']  # (6299, 115)
-    test = raw2['test']  # (2699, 115)
-    tmp = np.concatenate((train, test), 0)  # (8998, 115)
-    X = tmp[:, 0:-1]  # ([8998, 114])
-    y = tmp[:, -1]  # ([8998])
-
-
+    if args.feature=='fbands':
+        train_prototype=args.traindataset
+        test_prototype = args.testdataset
+        #datafile1 = '/Users/long/Documents/BCI/matlab_scripts/force/pls/move4TrainData.mat'
+        #datafile2 = '/Users/long/Documents/BCI/matlab_scripts/force/pls/move4TestData.mat'
+        datafile1 = '/Users/long/Documents/BCI/matlab_scripts/force/pls/move' + str(train_prototype) + 'TrainData.mat'
+        datafile2 = '/Users/long/Documents/BCI/matlab_scripts/force/pls/move' + str(test_prototype) + 'TestData.mat'
+        raw1 = scipy.io.loadmat(datafile1)
+        raw2 = scipy.io.loadmat(datafile2)
+        train = raw1['train']  # (6299, 115)
+        test = raw2['test']  # (2699, 115)
+        tmp = np.concatenate((train, test), 0)  # (8998, 115)
+        X = tmp[:, 0:-1]  # ([8998, 114])
+        y = tmp[:, -1]  # ([8998])
+    elif args.feature=='rawmove':
+        train_prototype = args.traindataset
+        test_prototype = args.testdataset
+        datafile1 = '/Users/long/Documents/BCI/matlab_scripts/force/data/SEEG_Data/move' + str(train_prototype) + '.mat'
+    elif args.feature=='rawseeg':
+        datafile1 = '/Users/long/Documents/BCI/matlab_scripts/force/data/SEEG_Data/move1.mat'
     return X, y
