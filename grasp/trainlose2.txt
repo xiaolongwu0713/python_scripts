@@ -1,0 +1,4 @@
+tensor(0.1040, grad_fn=<MseLossBackward>)
+tensor(0.0281, grad_fn=<MseLossBackward>)
+tensor(0.1290, grad_fn=<MseLossBackward>)
+tensor(0.0206, grad_fn=<MseLossBackward>)
