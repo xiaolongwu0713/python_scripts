@@ -56,7 +56,7 @@ m5=pd.concat([motiondata['15'],motiondata['25']],axis=0,ignore_index=True) # lab
 m5label=np.ones((motiondata['15'].shape[0]+motiondata['25'].shape[0],1),int)+4
 #del motiondata
 
-# check train_test_split result, all good
+# check train_test_split result_tmp, all good
 #m11=np.concatenate((m1.to_numpy(),m1label),axis=1)
 #m22=np.concatenate((m2.to_numpy(),m2label),axis=1)
 #m33=np.concatenate((m3.to_numpy(),m3label),axis=1)

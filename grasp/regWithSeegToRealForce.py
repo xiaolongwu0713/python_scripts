@@ -1,17 +1,16 @@
 from torch.nn import MSELoss, L1Loss
 import numpy as np
-import scipy.io
 from torch.optim import SGD, Adagrad
-
-from grasp.EEGnetmodel import *
+#from grasp.EEGnetmodel import *
+from grasp.EEGnetmodelRawData import *
 import matplotlib.pyplot as plt
-from grasp.utils import read_fbanddata, plot_on_test, plot1, plot_on_train,plotloss
+from grasp.utils import read_fbanddata,plotloss,read_rawdata,preprocess
 
-trainx, trainy, testx, testy =read_fbanddata() # trainx: (114, 33293)
+trainx, trainy, testx, testy =read_rawdata() # trainx: (114, 33293)
 feature=trainx.shape[0]
-T=300 # stride T to create a batch
-wind=10
-stride=10
+T=15000 # stride T to create a batch
+wind=1000
+stride=500
 batch_size=int(T/stride) # 30. batch_size = number of step in one period
 totallen=trainx.shape[1] #38692
 
@@ -61,10 +60,10 @@ def evaluate(model,plot='plot'):
         preds = []
         targets = []
         tidx = 0
-        while (tidx < testx.shape[1] - T):  # (tidx < 5*T): # check on testset first 5 move
+        while (tidx < testx.shape[1] - wind - T):  # (tidx < 5*T): # check on testset first 5 move
             # x = np.zeros((len(batch_size), wind, 114))
             # y = np.zeros(len(batch_size),wind)
-            tx = np.zeros((30, 114, wind))
+            tx = np.zeros((30, 19, wind))
             ty = np.zeros((30, wind))
             #print(tidx)
             # format x into 3D tensor
@@ -89,32 +88,27 @@ def evaluate(model,plot='plot'):
             plot_on_test(ax,targets,preds)
 
 # clear history lose
-with open('trainlose.txt', 'w'):pass
-with open('testlose.txt', 'w'):pass
+#with open('trainlose.txt', 'w'):pass
+#with open('testlose.txt', 'w'):pass
 fig, ax = plt.subplots(figsize=(6,3))
 plt.ion()
-trainOrTest=1 # train=1, test=0
 
-if trainOrTest:
-    model = EEGNet_experimental()
-    epochs = 100
-    learning_rate = 0.0001
-    criterion = MSELoss()
-    #criterion = L1Loss()
-    # optimizer = SGD(model.parameters(), lr=learning_rate)  #,weight_decay=1e-4
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
-    # optimizer = Adagrad(model.parameters(), lr=learning_rate,weight_decay=1e-4)
-    for epoch in range(epochs):
-        train(model,'noplot')
-        if epoch % 1 == 0:
-            evaluate(model,'plot')
-    torch.save(model, 'model1.pth')
-    plotloss(ax,'trainlose.txt','testlose.txt')
 
-else:
-    model = torch.load('model1.pth')
-    evaluate(model)
-
+model = EEGNet_experimental()
+#model = torch.load('model1.pth')
+epochs = 200
+learning_rate = 0.0001
+criterion = MSELoss()
+#criterion = L1Loss()
+# optimizer = SGD(model.parameters(), lr=learning_rate)  #,weight_decay=1e-4
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
+# optimizer = Adagrad(model.parameters(), lr=learning_rate,weight_decay=1e-4)
+for epoch in range(100,epochs):
+    train(model,'noplot')
+    if epoch % 1 == 0:
+        evaluate(model,epoch,'plot')
+torch.save(model, 'model1.pth')
+plotloss(ax,'trainlose.txt','testlose.txt')
 
 
 

@@ -22,7 +22,7 @@ def convtransp_output_shape(h_w, kernel_size=1, stride=1, pad=0,dilation=1):
     w = math.floor((h_w[1] + 2*pad[1] - dilation[1]*(kernel_size[1]-1) - 1) / stride[1] + 1)
     return h, w
 
-class deepwise_separable_conv(nn.Module):
+class deepwise_separable_conv(nn.Module): # init method: (nin=F1*D,nout=F2,kernelSize=kernLength2)
     def __init__(self,nin,nout,kernelSize):
         super(deepwise_separable_conv,self).__init__()
         self.kernelSize = kernelSize
@@ -37,61 +37,47 @@ class deepwise_separable_conv(nn.Module):
     def get_output_size(self,h_w):
         return convtransp_output_shape(h_w, kernel_size=(1,self.kernelSize), stride=1, pad=(0,self.time_padding), dilation=1)
 
+class logTransform(nn.Module):
+    def __init__(self, **kwargs):
+        super(logTransform, self).__init__(**kwargs)
+    def forward(self, x):
+        return torch.log(1+x)
 
 class EEGNet_experimental(nn.Module):
     '''Data shape = (trials, kernels, channels, samples), which for the
         input layer, will be (trials, 1, channels, samples).'''
     #TODO resolve problems with avg padding when the end of the epoch lost
     #TODO possible solution via padding or AdaptiveAvgPool2d
-    def __init__(self,nb_classes=10, Chans=114, Samples=20,
-           dropoutRates=(0.25,0.25), kernLength1=5,kernLength2=5, poolKern1=4,poolKern2=8, F1=4,
-           D=2, F2=8, norm_rate=0.25, dropoutType='Dropout'):
+    def __init__(self,Chans,kernLength1,kernLength2,dropoutRates=(0.25,0.25),F1=4,D=2,F2=8,poolKern1=5,poolKern2=8, norm_rate=0.25, dropoutType='Dropout'):
         super(EEGNet_experimental,self).__init__()
-        self.Chans = Chans
-        self.Samples = Samples
-        self.output_sizes = {}
         #block1
         time_padding = int((kernLength1//2))
         self.conv1 = nn.Conv2d(in_channels=1,out_channels=F1,kernel_size =(1,kernLength1),padding=(0,time_padding), stride=1,bias=False)
-        self.output_sizes['conv1']=convtransp_output_shape((Chans,Samples), kernel_size=(1,kernLength1), stride=1,
-                                                           pad=(0,time_padding))
+
         self.batchnorm1 = nn.BatchNorm2d(num_features=F1, affine=True)
         self.depthwise1 = nn.Conv2d(in_channels=F1,out_channels=F1*D,kernel_size=(Chans,1),groups=F1,padding=0,bias=False)
-        self.output_sizes['depthwise1'] = convtransp_output_shape(self.output_sizes['conv1'], kernel_size=(Chans,1),
-                                                                  stride=1, pad=0)
+        self.lppool=nn.LPPool2d(2,(1,20),stride=1) # convert to power, and pool
+        self.applyLog=logTransform()
+
         self.batchnorm2 = nn.BatchNorm2d(num_features=F1*D, affine=True)
         self.activation_block1 = nn.ELU()
-        # self.avg_pool_block1 = nn.AvgPool2d((1,poolKern1))
-        # self.output_sizes['avg_pool_block1'] = convtransp_output_shape(self.output_sizes['depthwise1'], kernel_size=(1, poolKern1),
-        #                                                           stride=(1,poolKern1), pad=0)
-        #self.avg_pool_block1 = nn.AdaptiveAvgPool2d((1,int(self.output_sizes['depthwise1'][1]/2))) # used to be 4
+        #self.avg_pool_block1 = nn.AvgPool2d((1,poolKern1))
+
         self.avg_pool_block1 = nn.AdaptiveAvgPool2d((1, 32))
-        self.output_sizes['avg_pool_block1'] = (1,32)
         self.dropout_block1 = nn.Dropout(p=dropoutRates[0])
 
         #block2
         self.separable_block2 = deepwise_separable_conv(nin=F1*D,nout=F2,kernelSize=kernLength2)
-        self.output_sizes['separable_block2'] = self.separable_block2.get_output_size(self.output_sizes['avg_pool_block1'])
         self.activation_block2 = nn.ELU()
-        # self.avg_pool_block2 = nn.AvgPool2d((1,poolKern2))
-        # self.output_sizes['avg_pool_block2'] = convtransp_output_shape(self.output_sizes['separable_block2'],
-        #                                                                kernel_size=(1, poolKern2),
-        #                                                                stride=(1, poolKern2), pad=0)
-        #self.avg_pool_block2 = nn.AdaptiveAvgPool2d((1,int(self.output_sizes['separable_block2'][1]/4)))
-        # self.output_sizes['avg_pool_block2'] = (1,int(self.output_sizes['separable_block2'][1]/4))
         self.avg_pool_block2 = nn.AdaptiveAvgPool2d((1, 10))
-        self.output_sizes['avg_pool_block2'] = (1, 10)
-
         self.dropout_block2 = nn.Dropout(dropoutRates[1])
-
         self.flatten = nn.Flatten()
-        #n_size = self.get_features_dim(Chans,Samples)
-        #self.dense = nn.Linear(n_size,nb_classes)
 
         # block 3
         self.lstm = nn.LSTM(8, 20)
         self.ln1 = nn.Linear(20, 1)
         self.relu1 = nn.ReLU()
+
 
     def get_features_dim(self,Chans,Samples):
         bs = 1
@@ -101,23 +87,20 @@ class EEGNet_experimental(nn.Module):
         return n_size
 
     def forward(self,input):
-        out_dims = {}
         block1 = self.conv1(input)
-        out_dims['conv1'] = block1.size()
         block1 = self.batchnorm1(block1)
         block1 = self.depthwise1(block1)
-        out_dims['depthwise1'] = block1.size()
+        block1 = self.lppool(block1)
+        block1 = self.applyLog(block1)
         block1 = self.batchnorm2(block1)
-        block1 = self.activation_block1(block1)
+        #block1 = self.activation_block1(block1)
         #block1 = self.avg_pool_block1(block1)
-        out_dims['avg_pool_block1'] = block1.size()
+        #out_dims['avg_pool_block1'] = block1.size()
         block1 = self.dropout_block1(block1)
 
         block2 = self.separable_block2(block1)
-        out_dims['separable_block2'] = block1.size()
         block2 = self.activation_block2(block2)
         #block2 = self.avg_pool_block2(block2)
-        out_dims['avg_pool_block2'] = block1.size()
         block2 = self.dropout_block2(block2)
 
         block3=torch.squeeze(block2).permute(2,0,1)

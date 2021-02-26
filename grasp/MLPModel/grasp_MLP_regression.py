@@ -13,6 +13,9 @@ import scipy.io
 from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import Dataset, DataLoader
 
+basedir='/Users/long/Documents/BCI/python_scripts/grasp/MLPModel/'
+datadir=basedir
+plotsdir=basedir+'plots/'
 
 # model definition
 class MLP(Module):
@@ -50,33 +53,30 @@ class MLP(Module):
 
 learning_rate=0.01 # 0.02:failed to converge
 # train the model
-def train_model(train_dl, model):
+def train_model(epoch,train_dl, model,optimizer,criterion):
     model.train()
-    criterion = MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     #optimizer = SGD(model.parameters(), lr=learning_rate) # failed to converge
-    for epoch in range(2000):
-        # enumerate mini batches
-        ls=.0
-        for i, (inputs, targets) in enumerate(train_dl):
-            yhat = model(inputs)
-            loss = criterion(torch.squeeze(yhat), targets)
-            ls=ls+loss.item()
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            if i==19:
-                print(f'epoch: {epoch:3} loss: {ls:10.8f}')
-                plt.cla()
-                ax.plot(targets.data.numpy(), color="orange")
-                ax.plot(yhat.data.numpy(), 'g-', lw=3)
-                plt.show()
-                plt.pause(0.2)  # Note this correction
-            if epoch % 100 == 0:
-                pic= "train_%i.png" % epoch
-                #plt.savefig(pic, format='png')
+    # enumerate mini batches
+    ls=.0
+    for i, (inputs, targets) in enumerate(train_dl):
+        yhat = model(inputs)
+        loss = criterion(torch.squeeze(yhat), targets)
+        ls=ls+loss.item()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        if i==19:
+            print(f'epoch: {epoch:3} loss: {ls:10.8f}')
+            plt.cla()
+            ax.plot(targets.data.numpy(), color="orange")
+            ax.plot(yhat.data.numpy(), 'g-', lw=3)
+            plt.show()
+            plt.pause(0.2)  # Note this correction
+        if epoch % 100 == 0:
+            pic= plotsdir+"train_%i.png" % epoch
+            plt.savefig(pic, format='png')
 
-def evaluate_model(test_dl, model):
+def evaluate_model(epoch,test_dl,model):
     model.eval()
     predictions, actuals = list(), list()
     for i, (inputs, targets) in enumerate(test_dl):
@@ -91,11 +91,27 @@ def evaluate_model(test_dl, model):
     plt.cla()
     ax.plot(actuals, color="orange")
     ax.plot(predictions, 'g-', lw=3)
-    ax.set_title('Testing set', fontsize=35)
+    ax.set_title('Testing set,MSE='+str(mse), fontsize=35)
     plt.show()
     plt.pause(5)
-    plt.savefig('test_sample.png')
+    filename=plotsdir+'test_epoch'+str(epoch)+'.png'
+    plt.savefig(filename)
     return mse
+
+def savemode(epoch,model,optimizer):
+    state = {
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict(),}
+    filename=plotsdir+'checkpoint_'+str(epoch)+'.pth'
+    torch.save(state,filename)
+    print('Save model of epoch '+str(epoch))
+
+def loadmode(epoch,model,optimizer):
+    filename=plotsdir+'checkpoint_'+str(epoch)+'.pth'
+    checkpoint = torch.load(filename)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
 
 ###########
 datafile1='/Users/long/Documents/BCI/matlab_scripts/force/pls/move4TrainData.mat'
@@ -104,7 +120,7 @@ raw1=scipy.io.loadmat(datafile1)
 raw2=scipy.io.loadmat(datafile2)
 train=raw1['train'] # (6299, 115)
 test=raw2['test'] #(2699, 115)
-tmpraw=np.concatenate((train,test),0) # (8998, 115)
+tmpraw=np.concatenate((train,test),0) # (10498, 115)
 
 scaler = MinMaxScaler(feature_range=(-1, 1))
 tmp = scaler.fit_transform(tmpraw)
@@ -141,10 +157,17 @@ test_loader = DataLoader(dataset=test_data, batch_size=299, shuffle=False)
 # define the network
 input_size=114
 model = MLP(input_size)
+criterion = MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 fig, ax = plt.subplots(figsize=(12,7))
 plt.ion()
-# train the model
-train_model(train_loader, model)
-# evaluate the model
-mse = evaluate_model(test_loader, model)
-print('MSE: %.3f, RMSE: %.3f' % (mse, sqrt(mse)))
+epochs=2000
+for epoch in range(0,epochs):
+    # train the model
+    train_model(epoch,train_loader, model,optimizer,criterion)
+    # evaluate the model
+    if epoch % 50 == 0:
+        print('evaluating')
+        mse = evaluate_model(epoch,test_loader,model)
+        savemode(epoch,model,optimizer)
+    #print('MSE: %.3f, RMSE: %.3f' % (mse, sqrt(mse)))
